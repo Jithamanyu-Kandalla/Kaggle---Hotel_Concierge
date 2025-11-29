@@ -1,0 +1,16 @@
+Running and Testing:
+
+Run backend service:
+python backend.py
+
+Run fulfillment webhook server:
+export GOOGLE_CREDENTIALS_JSON=<path_to_service_account_json.json> (Linux/Mac)
+set GOOGLE_CREDENTIALS_JSON=<path_to_service_account_json.json> (Windows)
+python fulfillment.py
+
+Expose fulfillment.py with ngrok:
+ngrok http 5000
+
+Update Dialogflow webhook URL with your ngrok HTTPS URL + /webhook.
+
+Use Dialogflow Simulator or API to chat with the Concierge Agent!

@@ -1,0 +1,6 @@
+Prerequisites:
+Python 3.8+
+Google Cloud Platform project with Dialogflow CX or ES setup
+Enable Dialogflow API and Google Calendar API on Cloud Console
+Install required Python packages:
+pip install flask requests google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client

@@ -1,0 +1,13 @@
+Dialogflow Intent Setup:
+Manually on Dialogflow console:
+
+Intent Name		Training Phrases Examples			Parameters and Entities
+BookRoom		"I want to book a single room on 2025-11-29"	room-type (entity: @room-type), date (@sys.date)
+CheckAvailability	"Is a double room available on 2025-12-01?"	room-type, date
+ExplainServices		"What services do you offer?"			None
+CancelBooking		"Cancel my booking for 2025-12-05"		(Optional parameters for cancellation)
+
+Make sure the parameter names you pick in Dialogflow match those used in the code: room-type and date.
+
+For fulfillment:
+Enable webhook fulfillment for these intents and use your local ngrok URL followed by /webhook when testing locally.

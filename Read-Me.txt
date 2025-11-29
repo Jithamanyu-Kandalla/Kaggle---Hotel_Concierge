@@ -1,0 +1,124 @@
+Hotel Concierge Agent — Deployment, Setup & Testing Guide
+
+Table of Contents
+Project Structure
+Prerequisites
+Google Cloud & Dialogflow Setup
+Google Calendar API Credential Setup
+Stripe API Setup (Optional)
+Build & Run Locally using Docker Compose
+Setup Dialogflow Agent and Import Intents
+Testing Conversational Agent
+Extending the System
+Frontend Example (Optional)
+CI/CD Pipeline Suggestion (Optional)
+
+1. Project Structure
+hotel-concierge-agent/
+├── backend/
+│   ├── backend.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── fulfillment/
+│   ├── fulfillment.py
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── credentials.json  (Google service account JSON)
+├── dialogflow/
+│   └── intents.json     (Dialogflow intent dataset)
+├── docker-compose.yml
+├── README.md            (this file)
+└── .env.example         (env vars example)
+
+2. Prerequisites
+Python 3.8+ installed (if running outside Docker)
+Docker and Docker Compose installed
+Docker installation
+Docker Compose installation
+Google Cloud Platform account
+Stripe account (optional, for real payment integration)
+
+3. Google Cloud & Dialogflow Setup
+Create a Google Cloud Project or use an existing one.
+Enable APIs:
+Dialogflow API
+Google Calendar API
+Create Dialogflow Agent:
+Go to Dialogflow Console .
+Create a new agent in your project region.
+Create and Download Service Account Key:
+Go to "IAM & Admin" → "Service Accounts".
+Create a service account with "Editor" role or granular permissions for Google Calendar.
+Generate JSON key and download as credentials.json.
+Place it in fulfillment/ folder.
+
+4. Google Calendar API Credential Setup
+Share your Google calendar with the service account email (qualified in credentials.json) with Editor rights:
+Google Calendar → Settings and sharing → Share with specific people → add service account email
+Export environment variable for local development or define in Docker compose:
+export GOOGLE_CREDENTIALS_JSON=fulfillment/credentials.json
+
+For Docker, the credential file is mounted and path defined in compose file.
+
+5. Stripe API Setup (Optional — for payments)
+Signup on Stripe and get your Test Secret Key
+Add it to your environment variables or .env file:
+STRIPE_API_KEY=sk_test_...
+
+The fulfillment service uses it if present, otherwise falls back to mock payment.
+
+6. Build & Run Locally using Docker Compose
+From the project root:
+docker-compose build
+docker-compose up
+
+Backend service will run at http://localhost:6000
+Fulfillment webhook runs at http://localhost:5000
+Expose fulfillment webhook with ngrok for Dialogflow webhook URL:
+ngrok http 5000
+
+Copy https ngrok URL (e.g., https://abcd1234.ngrok.io/webhook) and set as fulfillment webhook in Dialogflow console:
+
+Dialogflow Console → Fulfillment → Enable Webhook → Enter Ngrok URL + /webhook
+Save
+
+7. Setup Dialogflow Agent and Import Intents
+Create intents matching dialogflow/intents.json or manually create in Dialogflow Console:
+BookRoom (with room-type, date parameters)
+CheckAvailability (same parameters)
+ExplainServices
+CancelBooking (optional)
+For each intent:
+Turn on "Enable webhook call for this intent"
+Create custom entity @room-type with synonyms: single, double, suite
+
+8. Testing Conversational Agent
+Use Dialogflow’s inline simulator to type phrases like:
+"I want to book a double room for 2025-12-19"
+"Is a single room available tomorrow?"
+"Tell me about your services."
+Confirm bookings are processed, calendar events created, and payment simulated.
+
+9. Extending the System
+Implement cancel booking logic in backend and webhook.
+Add support for facilities booking similar to rooms.
+Add email notifications via SMTP or services like SendGrid.
+Extend backend data store from in-memory to persistent DB (PostgreSQL/MySQL).
+
+10. Frontend Example (Optional)
+Build a simple React or Vue chatbot interface that calls Dialogflow's detectIntent API.
+Or use existing chatbot platforms integrating Dialogflow.
+
+11. CI/CD Pipeline Suggestion (Optional)
+Use GitHub Actions or GitLab pipelines to:
+Build Docker images
+Run automated tests on fulfillment and backend services
+Push images to Docker Hub or cloud registry
+Deploy on Kubernetes, AWS ECS, Google Cloud Run, or VMs
+Automate ngrok or use static cloud URLs for webhook endpoint
+Additional Resources & Files
+dialogflow/intents.json (upload or share your sample JSON for import)
+Sample .env.example content:
+GOOGLE_CREDENTIALS_JSON=fulfillment/credentials.json
+GOOGLE_CALENDAR_ID=primary
+STRIPE_API_KEY=your_test_stripe_key

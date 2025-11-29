@@ -1,0 +1,21 @@
+Google Calendar API Credentials Setup:
+
+-Go to Google Cloud Console: https://console.cloud.google.com/
+-Create or select a project.
+-Enable Google Calendar API for the project:
+Navigate to “APIs & Services” → “Library”
+Search “Google Calendar API” and enable it.
+-Create Service Account credentials:
+Go to “APIs & Services” → “Credentials”
+Click “Create Credentials” → “Service Account”
+Provide a Service Account name (e.g., calendar-service-account)
+After account creation:
+Go to “Keys” tab → Add Key → Create New Key → JSON
+Download the JSON file (save as credentials.json in your fulfillment directory)
+-Share your Google calendar with the Service Account email:
+Open https://calendar.google.com/
+Go to your calendar settings (for calendar with id like primary or specific calendar)
+Share the calendar with the Service Account's email address (found in the JSON key under client_email)
+Give Editor permissions so the service account can add events.
+-Set environment variable for the service account json file path before running:
+export GOOGLE_CREDENTIALS_JSON=/path/to/credentials.json

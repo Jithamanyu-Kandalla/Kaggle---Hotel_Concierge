@@ -1,0 +1,225 @@
+Complete Code and instructions:
+
+1. Backend.py
+from flask import Flask, request, jsonify
+from datetime import datetime
+
+app = Flask(__name__)
+
+room_inventory = {'single': 5, 'double': 3, 'suite': 2}
+bookings = []
+booking_id_seq = 1
+
+@app.route('/availability', methods=['POST'])
+def check_availability():
+    data = request.json
+    room_type = data.get('room_type')
+    date_str = data.get('date')
+
+    if not room_type or not date_str:
+        return jsonify({'error': 'Missing parameters'}), 400
+
+    if room_type not in room_inventory:
+        return jsonify({'available': False, 'message': 'Invalid room type'})
+
+    try:
+        date = datetime.fromisoformat(date_str)
+    except Exception:
+        return jsonify({'available': False, 'message': 'Invalid date format'}), 400
+
+    booked_count = sum(1 for b in bookings if b['room_type'] == room_type and b['date'] == date_str)
+    available = booked_count < room_inventory[room_type]
+
+    return jsonify({'available': available})
+
+@app.route('/book', methods=['POST'])
+def book_room():
+    global booking_id_seq
+    data = request.json
+    room_type = data.get('room_type')
+    date_str = data.get('date')
+
+    if not room_type or not date_str:
+        return jsonify({'success': False, 'message': 'Missing parameters'}), 400
+
+    if room_type not in room_inventory:
+        return jsonify({'success': False, 'message': 'Invalid room type'})
+
+    try:
+        date = datetime.fromisoformat(date_str)
+    except Exception:
+        return jsonify({'success': False, 'message': 'Invalid date format'}), 400
+
+    booked_count = sum(1 for b in bookings if b['room_type'] == room_type and b['date'] == date_str)
+    if booked_count >= room_inventory[room_type]:
+        return jsonify({'success': False, 'message': 'No rooms available'})
+
+    booking = {'id': booking_id_seq, 'room_type': room_type, 'date': date_str}
+    booking_id_seq += 1
+    bookings.append(booking)
+
+    return jsonify({'success': True, 'message': 'Room booked successfully', 'booking_id': booking['id']})
+
+if __name__ == '__main__':
+    app.run(port=6000, debug=True)
+
+2. Fulfillment.py
+import os
+import requests
+from flask import Flask, request, jsonify
+
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import stripe
+
+app = Flask(__name__)
+
+BACKEND_URL = 'http://localhost:6000'
+
+GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')
+GOOGLE_CALENDAR_ID = os.getenv('GOOGLE_CALENDAR_ID', 'primary')
+STRIPE_API_KEY = os.getenv('STRIPE_API_KEY')
+
+stripe.api_key = STRIPE_API_KEY if STRIPE_API_KEY else None
+
+calendar_service = None
+
+def init_calendar():
+    global calendar_service
+    if not GOOGLE_CREDENTIALS_JSON:
+        print("Google credentials JSON not set, calendar disabled")
+        return None
+
+    credentials = service_account.Credentials.from_service_account_file(
+        GOOGLE_CREDENTIALS_JSON,
+        scopes=['https://www.googleapis.com/auth/calendar'])
+    calendar_service = build('calendar', 'v3', credentials=credentials)
+
+init_calendar()
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    req = request.get_json(force=True)
+    intent = req['queryResult']['intent']['displayName']
+    params = req['queryResult'].get('parameters', {})
+
+    if intent == 'BookRoom':
+        return handle_book_room(params)
+
+    elif intent == 'CheckAvailability':
+        return handle_check_availability(params)
+
+    elif intent == 'ExplainServices':
+        return handle_explain_services()
+
+    else:
+        return jsonify({'fulfillmentText': "Sorry, I couldn't understand your request."})
+
+def handle_book_room(params):
+    room_type = params.get('room-type')
+    date = params.get('date')
+    if not (room_type and date):
+        return jsonify({'fulfillmentText': "Please specify room type and booking date."})
+    
+    avail_resp = requests.post(f'{BACKEND_URL}/availability', json={'room_type': room_type, 'date': date})
+    if avail_resp.ok and avail_resp.json().get('available'):
+        book_resp = requests.post(f'{BACKEND_URL}/book', json={'room_type': room_type, 'date': date})
+        if book_resp.ok and book_resp.json().get('success'):
+            add_event_to_calendar(room_type, date)
+            payment_success = process_payment(room_type, date)
+            if payment_success:
+                reply = f"Your {room_type} room is booked for {date}. Payment processed successfully."
+            else:
+                reply = f"Your {room_type} room is booked for {date}. However, payment processing failed."
+            return jsonify({'fulfillmentText': reply})
+        else:
+            return jsonify({'fulfillmentText': "Sorry, booking failed due to backend error."})
+    else:
+        return jsonify({'fulfillmentText': f"No {room_type} rooms available for {date}."})
+
+def handle_check_availability(params):
+    room_type = params.get('room-type')
+    date = params.get('date')
+    if not (room_type and date):
+        return jsonify({'fulfillmentText': "Please specify room type and date to check availability."})
+    
+    avail_resp = requests.post(f'{BACKEND_URL}/availability', json={'room_type': room_type, 'date': date})
+    if avail_resp.ok:
+        available = avail_resp.json().get('available', False)
+        if available:
+            reply = f"The {room_type} room is available on {date}."
+        else:
+            reply = f"The {room_type} room is not available on {date}."
+        return jsonify({'fulfillmentText': reply})
+    else:
+        return jsonify({'fulfillmentText': "I am unable to check availability right now. Please try later."})
+
+def handle_explain_services():
+    text = (
+        "Our hotel offers:\n"
+        "- Room bookings (single, double, suite)\n"
+        "- Spa and wellness\n"
+        "- Gym access\n"
+        "- Fine dining\n"
+        "- Conference and event facilities"
+    )
+    return jsonify({'fulfillmentText': text})
+
+def add_event_to_calendar(room_type, date_str):
+    if not calendar_service:
+        return False
+
+    event = {
+        'summary': f'Booking: {room_type} room',
+        'start': {'date': date_str},
+        'end': {'date': date_str},
+        'description': 'Hotel room booking via Concierge Agent'
+    }
+    try:
+        calendar_service.events().insert(calendarId=GOOGLE_CALENDAR_ID, body=event).execute()
+        return True
+    except Exception as e:
+        print("Calendar event creation failed:", e)
+        return False
+
+def process_payment(room_type, date_str):
+    if stripe.api_key:
+        try:
+            # Create Stripe payment intent with $100 amount as example
+            intent = stripe.PaymentIntent.create(
+                amount=10000,
+                currency='usd',
+                payment_method_types=['card'],
+                description=f"Booking {room_type} room on {date_str}",
+            )
+            print("Stripe payment intent created:", intent['id'])
+            # For demo, simulate success without client-side confirmation
+            return True
+        except Exception as e:
+            print("Stripe payment failed:", e)
+            return False
+    else:
+        # Mock payment success
+        print("Mock payment processed successfully")
+        return True
+
+if __name__ == '__main__':
+    app.run(port=5000, debug=True)
+
+3. Setup Instructions Summary
+Create Google Cloud Project → Enable Dialogflow & Calendar API
+Create and download service account JSON (put at fulfillment/credentials.json)
+Share Google calendar with service account email
+Export env vars for local dev:
+export GOOGLE_CREDENTIALS_JSON=fulfillment/credentials.json
+export STRIPE_API_KEY=<your_stripe_secret_key> # optional for real payments
+export GOOGLE_CALENDAR_ID=primary # or your calendar ID
+
+Run backend.py, fulfillment.py
+
+Expose fulfillment webhook (ngrok example):
+ngrok http 5000
+
+Configure Dialogflow webhook URL to ngrok URL + /webhook
+Create Dialogflow intents with proper parameters and enable webhook for them
+Test conversation flows using Dialogflow simulator or API

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - '6000:6000'
+
+  fulfillment:
+    build:
+      context: ./fulfillment
+    ports:
+      - '5000:5000'
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - GOOGLE_CALENDAR_ID=primary
+      - STRIPE_API_KEY=${STRIPE_API_KEY}
+    volumes:
+      - ./fulfillment/credentials.json:/app/credentials.json:ro
