@@ -1,0 +1,74 @@
+[
+  {
+    "name": "BookRoom",
+    "auto": true,
+    "templates": [
+      "I want to book a single room on 2025-11-29",
+      "Book a double room for tomorrow",
+      "Reserve a suite for December 10"
+    ],
+    "parameters": [
+      {
+        "name": "room-type",
+        "required": true,
+        "dataType": "@room-type",
+        "prompts": ["What type of room would you like?"]
+      },
+      {
+        "name": "date",
+        "required": true,
+        "dataType": "@sys.date",
+        "prompts": ["What date do you want to book?"]
+      }
+    ],
+    "responses": [
+      {
+        "speech": "Booking your {{room-type}} room for {{date}}."
+      }
+    ],
+    "webhookUsed": true,
+    "webhookForSlotFilling": false
+  },
+  {
+    "name": "CheckAvailability",
+    "auto": true,
+    "templates": [
+      "Is a double room available on 2025-12-01?",
+      "Do you have any suites available tomorrow?"
+    ],
+    "parameters": [
+      {
+        "name": "room-type",
+        "required": true,
+        "dataType": "@room-type",
+        "prompts": ["Which room type do you want to check?"]
+      },
+      {
+        "name": "date",
+        "required": true,
+        "dataType": "@sys.date",
+        "prompts": ["For what date?"]
+      }
+    ],
+    "responses": [
+      {
+        "speech": "Checking availability for {{room-type}} on {{date}}."
+      }
+    ],
+    "webhookUsed": true
+  },
+  {
+    "name": "ExplainServices",
+    "auto": true,
+    "templates": [
+      "What services do you offer?",
+      "Tell me about your facilities."
+    ],
+    "responses": [
+      {
+        "speech": "Our hotel offers room booking, spa, gym, dining, and event facilities."
+      }
+    ],
+    "webhookUsed": true
+  }
+]
